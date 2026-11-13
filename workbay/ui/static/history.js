@@ -62,8 +62,10 @@ function paintHistory() {
       h("button.ghost.small", { onclick: () => { CH.checked.clear(); paintHistory(); } }, "清除"),
       h("button.danger.small", { onclick: deleteChecked }, `删除 ${CH.checked.size} 个`)] : null);
   const list = $("#chlist");
+  const old = $("#chrows"), top = old ? old.scrollTop : 0;       // a checkbox repaints: stay where it was
   list.replaceChildren(batch, h("div#chrows"));
   paintChList();
+  $("#chrows").scrollTop = top;
   paintPreview();
 }
 

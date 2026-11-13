@@ -102,6 +102,15 @@ def test_scan_one_ic_only(tree):
     assert build.scan(str(tree), None) == []
 
 
+def test_scan_humac_style_project_of_a_realtek_ic(tree):
+    touch(tree / "ppt/humac/sample/ppt_test/proj/rtl87x3k/defconfig.ppt_test.RTL87x3K.default")
+    touch(tree / "ppt/humac/sample/ppt_test/proj/rtl87x3k/CMakeLists.txt")
+    touch(tree / "ppt/humac/sample/orphan/rtl87x3k/defconfig.orphan.RTL87x3K.default")     # no CMakeLists.txt: skipped
+    [t] = build.scan(str(tree), "RTL87x3K")
+    assert t["app"] == "ppt_test" and t["kind"] == "humac" and t["src"].endswith("rtl87x3k")
+    assert not t["flash"]                                         # x3k: its own tool, not J-Link
+
+
 def test_scan_same_name_gets_its_own_build_dir(tree):
     touch(tree / "realtek/other/rtl87x2j/defconfig.template.RTL87x2J.bank0")
     dirs = [t["build_dir"] for t in build.scan(str(tree), "RTL87x2J") if t["app"] == "template" and t["variant"] == "bank0"]
@@ -268,3 +277,16 @@ def test_settings_from_when_it_was_apiary(tmp_path, monkeypatch):
     assert (tmp_path / "workbay" / "settings.json").exists()
     (tmp_path / "apiary" / "settings.json").write_text(json.dumps({"gcc_dir": "C:/older"}), encoding="utf-8")
     assert config.load().gcc_dir == "C:/old"                     # the new file wins from then on
+
+
+def test_find_vsdk_and_path_for_humac(tmp_path, monkeypatch):
+    seen = []
+    monkeypatch.setattr(build.shutil, "which", lambda n: None)
+    monkeypatch.setattr(build, "find_vsdk", lambda: r"X:\vsdk-1\mingw32\newlib\bin")
+    monkeypatch.setattr(build.Runner, "__call__", lambda self, argv, cwd: seen.append(self.env) or 0)
+    d = tmp_path / "b"
+    build.run("build", "humac", str(tmp_path), str(tmp_path / "defconfig.a.RTL87x3K.default"), str(d))
+    assert seen and seen[0]["PATH"].startswith(r"X:\vsdk-1\mingw32\newlib\bin")
+    seen.clear()
+    build.run("build", "realtek", str(tmp_path), str(tmp_path / "defconfig.a.RTL87x3K.default"), str(d))
+    assert seen and seen[0] is None                              # realtek-style: PATH as it is

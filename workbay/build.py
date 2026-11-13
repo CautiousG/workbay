@@ -19,6 +19,7 @@ The page's side (which IC a workspace is, the targets in it) is scan() / default
 below. Standard library only: it runs as a script, outside the package.
 """
 import argparse
+import glob
 import hashlib
 import json
 import os
@@ -79,7 +80,7 @@ def scan(ws_path, ic):
     ic = canon_ic(ic)
     if not ic:
         return []
-    kind, found = ICS[ic], []
+    found = []
     for base, dirs, names in os.walk(ws_path):
         dirs[:] = [d for d in dirs if not d.startswith((".", "build")) and d.lower() not in _SKIP_DIRS]
         for n in names:
@@ -87,7 +88,13 @@ def scan(ws_path, ic):
             if not p or p[1].lower() != ic.lower():
                 continue
             path = os.path.join(base, n)
-            src = _realtek_root(path, ws_path) if kind == "realtek" else base
+            kind, src = ICS[ic], base
+            if kind == "realtek":
+                # a realtek-style IC can also have humac-style projects (their own
+                # CMakeLists.txt beside the defconfig, no realtek\ above): e.g. ppt/humac/**/rtl87x3k
+                src = _realtek_root(path, ws_path)
+                if not src and "CMakeLists.txt" in names:
+                    kind, src = "humac", base
             if not src:
                 continue
             rel = os.path.relpath(path, ws_path).replace("\\", "/")
@@ -102,7 +109,8 @@ def scan(ws_path, ic):
         for t in same:
             tail = "" if len(same) == 1 else "-" + hashlib.sha1(t["id"].encode()).hexdigest()[:6]
             t["build_dir"] = os.path.join(ws_path, "build-cmake", "workbay", key + tail)
-            t["flash"] = kind == "humac" and not t["lib"]
+            # J-Link only for the ICs that build humac-style natively (x2l); the others have their own tools
+            t["flash"] = ICS[t["ic"]] == "humac" and not t["lib"]
     return sorted(found, key=lambda t: (not t["ppt"], t["app"].lower(), t["variant"].lower(), t["id"]))
 
 
@@ -132,6 +140,18 @@ def find_gcc(setting=""):
     return os.path.join(base, versions[-1], "bin") if versions else ""
 
 
+def find_vsdk():
+    r"""The bin directory of riscv32-none-elf-gcc (VSDK; the humac-style x3k projects'
+    toolchain file looks it up on PATH): PATH, else <drive>:\vsdk-*\mingw32\newlib\bin (the newest)."""
+    found = shutil.which("riscv32-none-elf-gcc")
+    if found:
+        return os.path.dirname(found)
+    hits = [d for drive in "CDEFG" for d in glob.glob(drive + r":\vsdk-*\mingw32\newlib\bin")
+            if os.path.isfile(os.path.join(d, "riscv32-none-elf-gcc.exe"))]
+    key = lambda d: [int(x) for x in re.findall(r"\d+", d.split(os.sep)[1])]
+    return max(hits, key=key) if hits else ""
+
+
 def find_cmake():
     """$WORKBAY_CMAKE (another cmake, the tests' stand-in), PATH, the usual install."""
     exe = os.environ.get("WORKBAY_CMAKE") or shutil.which("cmake")
@@ -159,7 +179,7 @@ def find_jlink():
 def tools(gcc_setting=""):
     return {"cmake": find_cmake() or None, "ninja": shutil.which("ninja"),
             "make": shutil.which("mingw32-make") or shutil.which("make"),
-            "gcc": find_gcc(gcc_setting) or None, "jlink": find_jlink() or None}
+            "gcc": find_gcc(gcc_setting) or None, "vsdk": find_vsdk() or None, "jlink": find_jlink() or None}
 
 
 # --- diagnostics ----------------------------------------------------------------------
@@ -291,8 +311,8 @@ def _drop_cache(build_dir):
 class Runner:
     """Runs the commands, echoes and logs their output, collects the diagnostics."""
 
-    def __init__(self, build_dir, out=print):
-        self.build_dir, self.out = build_dir, out
+    def __init__(self, build_dir, out=print, env=None):
+        self.build_dir, self.out, self.env = build_dir, out, env
         self.diags, self._seen = [], set()
         self.log = open(os.path.join(build_dir, LOG), "w", encoding="utf-8", errors="replace")
 
@@ -303,7 +323,7 @@ class Runner:
     def __call__(self, argv, cwd):
         self.say("$ " + " ".join(f'"{a}"' if " " in a else a for a in argv) + f"   ({cwd})")
         try:
-            proc = subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            proc = subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, env=self.env,
                                     stderr=subprocess.STDOUT, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         except OSError as exc:
             self.say(f"无法启动 {argv[0]}：{exc}")
@@ -345,7 +365,12 @@ def run(action, kind, src, defconfig, build_dir, gcc="", reconfigure=False, jobs
               "ended": None, "rc": None, "stage": "configure", "errors": 0, "warnings": 0, "diags": [],
               "products": [], "main_bin": None}
     _write(build_dir, result)
-    r = Runner(build_dir, out)
+    env = None
+    vsdk = find_vsdk() if kind == "humac" else ""
+    if vsdk and not shutil.which("riscv32-none-elf-gcc"):
+        # humac-style x3k projects: their toolchain file finds riscv32-none-elf-gcc on PATH
+        env = dict(os.environ, PATH=vsdk + os.pathsep + os.environ.get("PATH", ""))
+    r = Runner(build_dir, out, env)
     rc, stage = 0, "configure"
     try:
         argv, cwd, want = configure_argv(kind, src, defconfig, build_dir, gcc, cmake)
