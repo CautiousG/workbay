@@ -5,17 +5,17 @@ import shutil
 import subprocess
 import sys
 
-from . import gitcmd
+from ..core import gitcmd
 
 
 def command(west_path=""):
-    """-> (argv prefix, where it came from: "settings" | "PATH" | "apiary")."""
+    """-> (argv prefix, where it came from: "settings" | "PATH" | "workbay")."""
     if west_path:
         return [west_path], "settings"
     found = shutil.which("west")
     if found:
         return [found], "PATH"
-    return [sys.executable, "-m", "west"], "apiary"
+    return [sys.executable, "-m", "west"], "workbay"
 
 
 def describe(west_path=""):

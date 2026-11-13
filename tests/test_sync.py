@@ -7,9 +7,9 @@ import time
 import pytest
 from conftest import commit_all, git
 
-from apiary import discover, gitstat, ops, sync
-from apiary.jobs import Jobs
-from apiary.manifest import Declared
+from workbay.ws import discover, gitstat, ops, sync
+from workbay.core.jobs import Jobs
+from workbay.ws.manifest import Declared
 
 
 def quiet(*_):
@@ -27,7 +27,7 @@ def head(path):
 
 
 def backups(path):
-    return git(path, "for-each-ref", "--format=%(refname)", "refs/apiary/backup/").split()
+    return git(path, "for-each-ref", "--format=%(refname)", "refs/workbay/backup/").split()
 
 
 # --- sync ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ def test_align_stashes_changes(remote_and_clone):
     code, note = sync.align(str(work), "origin", "main", out=quiet)
     assert code == sync.OK, note
     assert git(work, "status", "--porcelain", "--untracked-files=no").strip() == ""
-    assert "apiary align" in git(work, "stash", "list")
+    assert "workbay align" in git(work, "stash", "list")
     assert backups(work) == []                     # HEAD was on origin/main: nothing to keep
 
 
@@ -215,14 +215,25 @@ def test_unstick_continue_needs_the_conflict_resolved(remote_and_clone):
 
 def test_backup_restore_and_drop(remote_and_clone):
     _, work, _ = remote_and_clone
-    git(work, "update-ref", "refs/apiary/backup/20260101-000000-abc", "HEAD")
-    assert [b["ref"] for b in ops.backups(str(work))] == ["refs/apiary/backup/20260101-000000-abc"]
-    name = ops.restore_backup(str(work), "refs/apiary/backup/20260101-000000-abc")
+    git(work, "update-ref", "refs/workbay/backup/20260101-000000-abc", "HEAD")
+    assert [b["ref"] for b in ops.backups(str(work))] == ["refs/workbay/backup/20260101-000000-abc"]
+    name = ops.restore_backup(str(work), "refs/workbay/backup/20260101-000000-abc")
     assert git(work, "rev-parse", name).strip() == head(work)
-    ops.drop_backup(str(work), "refs/apiary/backup/20260101-000000-abc")
+    ops.drop_backup(str(work), "refs/workbay/backup/20260101-000000-abc")
     assert ops.backups(str(work)) == []
     with pytest.raises(ops.OpError):
         ops.restore_backup(str(work), "refs/heads/main")
+
+
+def test_backups_kept_under_the_old_name(remote_and_clone):
+    _, work, _ = remote_and_clone
+    git(work, "update-ref", "refs/apiary/backup/20260101-000000-old", "HEAD")      # from when it was Apiary
+    git(work, "update-ref", "refs/workbay/backup/20260202-000000-new", "HEAD")
+    assert [b["ref"] for b in ops.backups(str(work))] == ["refs/workbay/backup/20260202-000000-new",
+                                                          "refs/apiary/backup/20260101-000000-old"]
+    assert git(work, "rev-parse", ops.restore_backup(str(work), "refs/apiary/backup/20260101-000000-old")).strip() == head(work)
+    ops.drop_backup(str(work), "refs/apiary/backup/20260101-000000-old")
+    assert len(ops.backups(str(work))) == 1
 
 
 # --- the west workspace: plan, the yml switch, the Api ---------------------------------
@@ -306,9 +317,9 @@ def test_api_repo_detail_has_the_new_fields(api_env):
     assert any(r["kind"] == "remote" for r in d["log"][0]["refs"])
 
 
-def test_jobs_note_and_skip_rc(apiary_home, tmp_path):
+def test_jobs_note_and_skip_rc(workbay_home, tmp_path):
     import sys
-    from apiary.jobs import Step
+    from workbay.core.jobs import Step
     jobs = Jobs()
     code = "import sys; print('working'); print('@@note all fine'); sys.exit(int(sys.argv[1]))"
     job = jobs.start("t", "ws", [Step("a", [sys.executable, "-c", code, "0"], str(tmp_path), skip_rc=2),

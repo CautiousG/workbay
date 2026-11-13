@@ -3,9 +3,9 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "apiary"
-version = "0.1.0"
-description = "Apiary - a local web UI to watch and update many west / git workspaces"
+name = "workbay"
+version = "0.2.0"
+description = "Workbay - a workbench of local tools around workspaces (west / git status, builds, Claude Code history), one page on 127.0.0.1"
 requires-python = ">=3.10"
 dependencies = [
     "west>=1.2",
@@ -15,13 +15,13 @@ dependencies = [
 dev = ["pytest>=7"]
 
 [project.scripts]
-apiary = "apiary.__main__:main"
+workbay = "workbay.__main__:main"
 
 [tool.setuptools.packages.find]
-include = ["apiary*"]
+include = ["workbay*"]
 
 [tool.setuptools.package-data]
-apiary = ["ui/static/*"]
+workbay = ["ui/static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

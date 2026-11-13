@@ -6,7 +6,7 @@ import urllib.request
 
 import pytest
 
-from apiary.ui.server import make_server
+from workbay.ui.server import make_server
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def test_index_page(http_server):
     status, body, ctype = request(host, "/")
     assert status == 200
     assert "text/html" in ctype
-    assert b"Apiary" in body
+    assert b"Workbay" in body
 
 
 def test_api_workspaces(http_server):

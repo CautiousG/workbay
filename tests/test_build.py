@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-from apiary import build
-from apiary.jobs import Busy, Jobs, Step
+from workbay import build
+from workbay.core.jobs import Busy, Jobs, Step
 
 # A cmake stand-in: configure writes CMakeCache.txt (+ build.ninja with the flash target),
 # build writes bin\<app>.bin and prints a gcc warning; FAKE_FAIL=1 makes the build fail.
@@ -71,7 +71,7 @@ def tree(tmp_path):
 def fake_cmake(tmp_path, monkeypatch):
     script = touch(tmp_path / "fake" / "fake_cmake.py", FAKE_CMAKE)
     cmd = touch(tmp_path / "fake" / "cmake.cmd", f'@"{sys.executable}" "{script}" %*\n')
-    monkeypatch.setenv("APIARY_CMAKE", str(cmd))      # also seen by build.py run as a Job step
+    monkeypatch.setenv("WORKBAY_CMAKE", str(cmd))      # also seen by build.py run as a Job step
     return cmd
 
 
@@ -93,7 +93,7 @@ def test_scan_one_ic_only(tree):
         ("ppt_simple_ptx", "bank0"), ("template", "bank0"), ("template", "bank1")]      # PPT first
     t = x2j[0]
     assert t["kind"] == "realtek" and t["src"] == str(tree / "realtek") and not t["flash"]
-    assert t["build_dir"] == os.path.join(str(tree), "build-cmake", "apiary", "ppt_simple_ptx.bank0")
+    assert t["build_dir"] == os.path.join(str(tree), "build-cmake", "workbay", "ppt_simple_ptx.bank0")
     x2l = {t["app"]: t for t in build.scan(str(tree), "rtl87x2l")}
     assert set(x2l) == {"ppt_sync_master", "ppt_sync_lib"}
     assert x2l["ppt_sync_master"]["flash"] and x2l["ppt_sync_master"]["kind"] == "humac"
@@ -218,7 +218,7 @@ def test_api_build_calls(api_env, fake_cmake):
     tid = r["targets"][0]["id"]
     assert api.build_fav(ws["id"], tid)["fav"] is True
     assert api.build_targets(ws["id"])["targets"][0]["fav"] is True
-    from apiary.ui.api import ApiError
+    from workbay.ui.api import ApiError
     with pytest.raises(ApiError):
         api.build(ws["id"], ["nope"])
     with pytest.raises(ApiError):
@@ -244,8 +244,8 @@ def test_api_build_calls(api_env, fake_cmake):
     assert [t["app"] for t in x2l] == ["ppt_tx"] and x2l[0]["flash"]
 
 
-def test_settings_build_fields(apiary_home):
-    from apiary import config
+def test_settings_build_fields(workbay_home):
+    from workbay.core import config
     s = config.Settings()
     config.update(s, {"gcc_dir": " C:/gcc ", "build_ic": {"D:\\a": "RTL87x2L"}, "build_fav": ["a|b", " "]})
     config.save(s)
@@ -253,4 +253,18 @@ def test_settings_build_fields(apiary_home):
     assert s2.gcc_dir == "C:/gcc" and s2.build_ic == {"D:\\a": "RTL87x2L"} and s2.build_fav == ["a|b"]
     config.update(s2, {"build_ic": "not a dict"})
     assert s2.build_ic == {"D:\\a": "RTL87x2L"}
-    json.loads((apiary_home / "settings.json").read_text(encoding="utf-8"))
+    json.loads((workbay_home / "settings.json").read_text(encoding="utf-8"))
+
+
+def test_settings_from_when_it_was_apiary(tmp_path, monkeypatch):
+    from workbay.core import config
+    monkeypatch.delenv("WORKBAY_HOME")
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    (tmp_path / "apiary").mkdir()
+    (tmp_path / "apiary" / "settings.json").write_text(json.dumps({"gcc_dir": "C:/old"}), encoding="utf-8")
+    s = config.load()
+    assert s.gcc_dir == "C:/old"
+    config.save(s)
+    assert (tmp_path / "workbay" / "settings.json").exists()
+    (tmp_path / "apiary" / "settings.json").write_text(json.dumps({"gcc_dir": "C:/older"}), encoding="utf-8")
+    assert config.load().gcc_dir == "C:/old"                     # the new file wins from then on

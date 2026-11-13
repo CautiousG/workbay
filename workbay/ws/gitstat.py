@@ -5,7 +5,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 
-from . import gitcmd
+from ..core import gitcmd
 
 WORKERS = 16
 # git processes reading status at once, over every request (the page reads three

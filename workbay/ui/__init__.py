@@ -1,4 +1,4 @@
-"""The web UI: python -m apiary ui (or ui.bat).
+"""The web UI: python -m workbay ui (or ui.bat).
 
     api.py      Api: plain Python in, JSON-ready dicts out; ApiError for what it refuses
     server.py   the local HTTP server (127.0.0.1 only): /api/* -> Api, /api/events as

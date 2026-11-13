@@ -1,5 +1,5 @@
 @echo off
-REM Apiary - Workspace Manager: double-click, the page opens on http://127.0.0.1:8780/
+REM Workbay: double-click, the page opens on http://127.0.0.1:8780/
 REM Runs from this directory; the only thing it installs is west, once, with pip.
 REM Close this window or press Ctrl+C to stop it.
 setlocal
@@ -18,7 +18,7 @@ if errorlevel 1 goto old_python
 %PY% -c "import west" 2>nul
 if not errorlevel 1 goto run
 
-echo [Apiary] First run: installing west ...
+echo [Workbay] First run: installing west ...
 REM --user, but not in a venv: pip refuses it there
 set "PIPUSER=--user"
 %PY% -c "import sys; sys.exit(sys.prefix == sys.base_prefix)"
@@ -27,23 +27,23 @@ if not errorlevel 1 set "PIPUSER="
 if errorlevel 1 goto no_west
 
 :run
-%PY% -m apiary ui %*
+%PY% -m workbay ui %*
 pause
 exit /b 0
 
 :no_python
-echo [Apiary] Python not found. Install Python 3.10+ and tick "Add python.exe to PATH".
+echo [Workbay] Python not found. Install Python 3.10+ and tick "Add python.exe to PATH".
 pause
 exit /b 1
 
 :old_python
-echo [Apiary] Python 3.10+ is needed, this one is:
+echo [Workbay] Python 3.10+ is needed, this one is:
 %PY% --version
 pause
 exit /b 1
 
 :no_west
-echo [Apiary] pip could not install west. Check the network / pip index, or run:
+echo [Workbay] pip could not install west. Check the network / pip index, or run:
 echo     %PY% -m pip install west
 pause
 exit /b 1

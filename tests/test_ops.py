@@ -4,7 +4,7 @@ import os
 import pytest
 from conftest import commit_all, git, init_repo, make_west_ws
 
-from apiary import discover, gitstat, ops
+from workbay.ws import discover, gitstat, ops
 
 
 def find(changes, path):

@@ -2,7 +2,7 @@
 import pytest
 from conftest import commit_all, git
 
-from apiary import gitcmd
+from workbay.core import gitcmd
 
 
 def test_is_repo_dir_plain_repo(remote_and_clone):

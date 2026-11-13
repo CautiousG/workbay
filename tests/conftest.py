@@ -1,5 +1,5 @@
 """Shared fixtures: every test runs in its own tmp_path, with its own git identity,
-its own APIARY_HOME, and git config that does not inherit the user's global ignore
+its own WORKBAY_HOME, and git config that does not inherit the user's global ignore
 rules (a global `*.txt` in core.excludesFile would silence half the fixtures)."""
 import subprocess
 import sys
@@ -12,10 +12,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 GIT_IDENTITY = {
-    "GIT_AUTHOR_NAME": "Apiary Test",
-    "GIT_AUTHOR_EMAIL": "apiary@example.invalid",
-    "GIT_COMMITTER_NAME": "Apiary Test",
-    "GIT_COMMITTER_EMAIL": "apiary@example.invalid",
+    "GIT_AUTHOR_NAME": "Workbay Test",
+    "GIT_AUTHOR_EMAIL": "workbay@example.invalid",
+    "GIT_COMMITTER_NAME": "Workbay Test",
+    "GIT_COMMITTER_EMAIL": "workbay@example.invalid",
 }
 
 WEST_YML = """\
@@ -49,7 +49,7 @@ def configure_repo(path):
     path = Path(path)
     git(path, "config", "commit.gpgsign", "false")
     git(path, "config", "core.autocrlf", "false")
-    ignore = path / ".git" / "apiary-empty-ignore"
+    ignore = path / ".git" / "workbay-empty-ignore"
     ignore.write_text("", encoding="utf-8")
     git(path, "config", "core.excludesFile", str(ignore))
 
@@ -116,11 +116,11 @@ def make_west_ws(ws_path, remotes_path):
 # --- fixtures ----------------------------------------------------------------------
 
 @pytest.fixture(autouse=True)
-def apiary_home(tmp_path, monkeypatch):
-    """Never read or write the user's real %APPDATA%/apiary/settings.json."""
-    home = tmp_path / "apiary-home"
+def workbay_home(tmp_path, monkeypatch):
+    """Never read or write the user's real %APPDATA%/workbay/settings.json."""
+    home = tmp_path / "workbay-home"
     home.mkdir()
-    monkeypatch.setenv("APIARY_HOME", str(home))
+    monkeypatch.setenv("WORKBAY_HOME", str(home))
     return home
 
 
@@ -157,8 +157,8 @@ def west_ws(tmp_path):
 @pytest.fixture
 def api_env(tmp_path):
     """An Api over a root holding one single repo and one west workspace."""
-    from apiary.config import Settings
-    from apiary.ui.api import Api
+    from workbay.core.config import Settings
+    from workbay.ui.api import Api
 
     root = tmp_path / "root"
     root.mkdir()

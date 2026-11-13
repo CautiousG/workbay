@@ -1,7 +1,7 @@
 """gitstat: the porcelain parser and status() against real clones."""
 from conftest import commit_all, git
 
-from apiary import gitstat
+from workbay.ws import gitstat
 
 PORCELAIN = """\
 # branch.oid 1234567890abcdef1234567890abcdef12345678

@@ -96,10 +96,14 @@ function modelPill(s, full = false) {
     s.local ? "🏠 " : "☁ ", full ? s.model : shortModel(s.model));
 }
 
-function ctxPill(c) {
+// bar: a short meter (the list), else a pill (the preview)
+function ctxPill(c, bar = false) {
   if (!c) return null;
-  const cls = c.pct >= 80 ? ".bad" : c.pct >= 50 ? ".warn" : ".ok";
-  return h("span.pill" + cls, { title: `上下文 ${Math.round(c.used / 1000)}K / ${c.window / 1000}K tokens（最后一次回复时）` }, `${Math.round(c.pct)}%`);
+  const lvl = c.pct >= 80 ? "bad" : c.pct >= 50 ? "warn" : "ok";
+  const title = `上下文 ${Math.round(c.used / 1000)}K / ${c.window / 1000}K tokens（最后一次回复时）`;
+  if (bar) return h("span.ctxbar." + lvl, { title },
+    h("span.track", h("span.fill", { style: `width:${Math.min(100, c.pct)}%` })), h("span.n", `${Math.round(c.pct)}%`));
+  return h("span.pill." + lvl, { title }, `${Math.round(c.pct)}%`);
 }
 
 function livePill(s) {
@@ -117,15 +121,13 @@ function sessionRow(s) {
     check,
     h("div.chmain",
       h("div.t", s.title || s.first || h("span.muted", "（没有对话）")),
-      h("div.small.muted.row",
+      h("div.small.muted.chmeta",
         h("span", new Date(s.ended * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
         s.ws ? h("span.pill.honey", s.ws) : null,
         h("span.mono.cwd", { title: s.cwd }, s.cwd || "?"),
         h("div.spacer"),
-        livePill(s),
-        modelPill(s),
-        ctxPill(s.context),
-        h("span", fmtSize(s.size)))));
+        livePill(s)),
+      h("div.small.muted.chpills", h("span", fmtSize(s.size)), h("div.spacer"), modelPill(s), ctxPill(s.context, true))));
 }
 
 async function paintPreview() {
@@ -134,7 +136,8 @@ async function paintPreview() {
   const s = CH.list && CH.list.find(x => x.id === CH.sel);
   if (!s) { box.replaceChildren(h("div.empty", "点左边的会话预览；勾选后可以删除")); return; }
   const head = h("div.chhead",
-    h("div.row", h("b", s.title || s.first || "（没有对话）"), h("div.spacer"),
+    h("div.row", !s.title && s.first ? h("span.pill.honey", "第一句") : null,
+      h("b", s.title || s.first || "（没有对话）"), h("div.spacer"),
       livePill(s),
       h("button.btn.claude", { disabled: !s.cwd_exists, title: s.cwd_exists ? `在 ${s.cwd} 执行：${s.resume_cmd}` : "目录不在了",
         onclick: async () => {
@@ -150,16 +153,19 @@ async function paintPreview() {
     s.model ? h("div.small.row", h("span.muted", "最后的模型："), modelPill(s, true),
       s.context ? [h("span.muted", "上下文："), `${Math.round(s.context.used / 1000)}K / ${s.context.window / 1000}K`, ctxPill(s.context)] : null) : null,
     h("div.small.mono.muted", s.cwd || ""),
-    s.last_prompt && s.last_prompt !== s.first ? h("div.small", { style: "margin-top:4px" }, h("span.muted", "最后一句："), s.last_prompt) : null);
+    s.last_prompt ? h("div.chlast", { title: "点击展开 / 收起", onclick: e => e.currentTarget.classList.toggle("open") },
+      h("div.lbl", "⏎ 最后一句"), h("div.txt", s.last_prompt)) : null);
   const msgs = h("div.chmsgs", h("span.spin"), " 读取…");
   box.replaceChildren(head, msgs);
   const want = s.id;
   const r = await act("claude_preview", { id: s.id }, "GET");
   if (CH.sel !== want || !r) return;
+  const users = r.messages.filter(m => m.role === "user");
+  const tag = m => m === users[0] ? " · 第一句" : m === users[users.length - 1] && !r.more ? " · 最后一句" : "";
   msgs.replaceChildren(...r.messages.map(m =>
     m.role === "tools" ? h("div.chmsg.tools", "🔧 ", m.text)
       : m.role === "command" ? h("div.chmsg.tools", "⌘ ", m.text)
-      : h("div.chmsg." + m.role, h("div.who", m.role === "user" ? "你" : "Claude"), h("div.txt", m.text))),
+      : h("div.chmsg." + m.role, h("div.who", m.role === "user" ? "你" + tag(m) : "Claude"), h("div.txt", m.text))),
     r.more ? h("div.muted.small", "…后面还有，继续会话可看全部") : null,
     !r.messages.length ? h("div.empty", "没有对话内容") : null);
 }
@@ -169,7 +175,7 @@ async function deleteChecked() {
   const titles = ids.map(id => CH.list.find(s => s.id === id)).filter(Boolean).slice(0, 8)
     .map(s => h("div.small", "· ", s.title || s.first || s.id));
   if (!await ask(`删除 ${ids.length} 个会话`, h("div", titles, ids.length > 8 ? h("div.small.muted", `…共 ${ids.length} 个`) : null,
-    h("div.muted.small", { style: "margin-top:8px" }, "移到 ~/.claude/apiary-trash，可在「回收站」恢复；正在运行的、2 分钟内有改动的不会删。")), "移到回收站", true)) return;
+    h("div.muted.small", { style: "margin-top:8px" }, "移到 ~/.claude/workbay-trash，可在「回收站」恢复；正在运行的、2 分钟内有改动的不会删。")), "移到回收站", true)) return;
   const r = await act("claude_delete", { ids, confirm: true });
   if (!r) return;
   toast(`已移到回收站 ${r.moved.length} 个`);

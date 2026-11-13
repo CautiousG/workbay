@@ -1,12 +1,12 @@
-# Apiary · Workspace Manager — 设计
+# Workbay — 设计
 
-日期：2026-11-12
+日期：2026-11-12（2026-11-13 由 Apiary 改名为 Workbay：workspace 管理是其中一个工具，编译、Claude History、测试等工具陆续放进来）
 
 ## 1. 目标
 
-Realtek BT 组的本地目录下堆着很多 workspace：新 IC 用 west manifest 管理，老 IC 是一个目录下放几个独立 git clone，还有单个 git 仓库。Apiary 是一个本地 Web UI，一页看清所有 workspace 的状态，点击就能 fetch / pull / `west update` / 跑自定义命令 / 提交，并能查看 manifest 内容。
+本地目录下堆着很多 workspace：新 IC 用 west manifest 管理，老 IC 是一个目录下放几个独立 git clone，还有单个 git 仓库。Workbay 是一个本地 Web UI，一页看清所有 workspace 的状态，点击就能 fetch / pull / `west update` / 跑自定义命令 / 提交，并能查看 manifest 内容。
 
-给组里所有人用：放在共享仓库 `bt1sd1/others/Apiary`，拉下来双击 `ui.bat`。不安装 Apiary 本身（避免 pip 构建依赖网络、避免在共享目录里留 egg-info），直接 `python -m apiary` 从目录运行；只在缺 west 时 `pip install --user west`。首次默认扫描所有非系统本地硬盘。
+放在 GitHub 私有仓库 `CautiousG/workbay`（原来在 `bt1sd1/others/Apiary`，那份冻结），拉下来双击 `ui.bat`。不安装 Workbay 本身（避免 pip 构建依赖网络、避免在共享目录里留 egg-info），直接 `python -m workbay` 从目录运行；只在缺 west 时 `pip install --user west`。首次默认扫描所有非系统本地硬盘。
 
 ### 第一版范围
 
@@ -27,22 +27,24 @@ Realtek BT 组的本地目录下堆着很多 workspace：新 IC 用 west manifes
 沿用 ppt_tester 的结构：Api 层是普通 Python（入参普通值，出参 JSON-ready dict），HTTP 层很薄，前端原生 JS，标准库为主。
 
 ```
-Apiary/
+Workbay/
 ├─ pyproject.toml          依赖：west；requires-python >= 3.10
-├─ ui.bat                  双击 → python -m apiary ui
+├─ ui.bat                  双击 → python -m workbay ui
 ├─ README.md
 ├─ docs/design.md
-├─ apiary/
+├─ workbay/
 │  ├─ __main__.py          CLI：ui | status
-│  ├─ config.py            设置的读写（%APPDATA%\apiary\settings.json）
-│  ├─ gitcmd.py            git 子进程的统一入口（环境变量、编码、超时）
-│  ├─ discover.py          扫描 → Workspace 列表，识别类型
-│  ├─ manifest.py          west API 只读解析 manifest
-│  ├─ gitstat.py           单仓状态 + 并发批量
-│  ├─ westcli.py           选择执行写操作的 west
-│  ├─ jobs.py              长任务：子进程、事件、取消、workspace 锁
-│  ├─ ops.py               fetch / pull / update 预检 / 同步计划 / 卡住 / forall / commit / open
-│  ├─ sync.py              同步 / 强制对齐一个仓库（Job 的一步，独立脚本）
+│  ├─ core/
+│  │  ├─ config.py         设置的读写（%APPDATA%\workbay\settings.json）
+│  │  ├─ gitcmd.py         git 子进程的统一入口（环境变量、编码、超时）
+│  │  └─ jobs.py           长任务：子进程、事件、取消、workspace 锁 / 全局锁
+│  ├─ ws/
+│  │  ├─ discover.py       扫描 → Workspace 列表，识别类型
+│  │  ├─ manifest.py       west API 只读解析 manifest
+│  │  ├─ gitstat.py        单仓状态 + 并发批量
+│  │  ├─ westcli.py        选择执行写操作的 west
+│  │  ├─ ops.py            fetch / pull / update 预检 / 同步计划 / 卡住 / forall / commit / open
+│  │  └─ sync.py           同步 / 强制对齐一个仓库（Job 的一步，独立脚本）
 │  ├─ build.py             编译 / 烧录一个 defconfig 工程（Job 的一步，独立脚本）
 │  ├─ claude_history.py    Claude Code 的会话：列表、预览、回收站
 │  └─ ui/
@@ -52,7 +54,7 @@ Apiary/
 └─ tests/
 ```
 
-依赖方向：`ui` → `ops`/`jobs` → `discover`/`manifest`/`gitstat`/`westcli` → `gitcmd`/`config`。下层不 import 上层。
+依赖方向：`ui` → `build`/`claude_history`/`ws` → `core`；`ws` 里 `ops` → `discover`/`manifest`/`gitstat`/`westcli`。下层不 import 上层。
 
 ## 3. 数据模型
 
@@ -143,7 +145,7 @@ RepoStatus
 | commit | `git commit -F <tmpfile> [--amend]` | 无 staged 改动拒绝；amend 且已 push 到 upstream 时需要 `confirm` |
 | open | Git Bash / 终端 / VS Code / 资源管理器 / gitk / git gui / 文件 | 路径必须是已知 workspace 内 |
 
-| 同步到 manifest | 每个 project 一步：`python apiary/sync.py sync --remote R --revision REV [--autostash]` | 预检表；切分支 / autostash 时需要 `confirm` |
+| 同步到 manifest | 每个 project 一步：`python workbay/sync.py sync --remote R --revision REV [--autostash]` | 预检表；切分支 / autostash 时需要 `confirm` |
 | 强制对齐 | `sync.py align`（每个勾选 project 一步） | 总是 `confirm`，列出会 stash / 备份的内容 |
 | 解除卡住 | `rebase / merge / cherry-pick / revert / am --abort | --continue | --skip` | 同步执行；workspace 有 Job 时拒绝 |
 | 切换 yml | 改 `.west/config` 的 `[manifest] file`（= `west config manifest.file`），然后重读 manifest | 只允许 manifest 仓库里的 `.yml` / `.yaml` |
@@ -157,7 +159,7 @@ RepoStatus
 - **预检**（只读）：每个 active project 一行——branch 的：切到同名本地分支（没有就从 `<remote>/<branch>` 建并 track）再 rebase 到远端；tag / commit 的：detach 过去。dirty 的默认跳过，勾 autostash 才带上；卡住的（见下）跳过。
 - **执行**：一个 Job，每个 project 一步，跑 `sync.py`（标准库脚本，进 Job 是为了输出、取消和 workspace 锁照旧）。每个仓库只 fetch 一次那个 revision，并把 `manifest-rev` 更新到它（和 `west update` 一致）。
 - **失败回滚**：rebase 冲突 → `rebase --abort`，切回原分支 / 原 HEAD，stash 的改动放回；仓库和同步前一样，只是多了 fetch 到的对象。
-- **不丢东西**：detached HEAD 上有不在任何分支上的 commit，切走前先存成 `refs/apiary/backup/<时间>-<sha>`。
+- **不丢东西**：detached HEAD 上有不在任何分支上的 commit，切走前先存成 `refs/workbay/backup/<时间>-<sha>`。
 - **结果**：退出码 0 完成 / 1 失败 / 2 跳过（`Step.skip_rc`），最后一行 `@@note <一句话>` 成为该步的说明（Job 事件 `type: note`）。结果弹窗列出失败 / 跳过的仓库，每行：重试、强制对齐、Git Bash、Claude Code、详情；多个时可"全部强制对齐"。
 - 不用 `west update`：它对分支会 detach，且没有 rebase 回滚；`west update` 按钮仍保留（clone 新 project 还要它）。
 
@@ -173,7 +175,7 @@ RepoStatus
 
 卡片徽标数卡住的个数，展开后仓库表上方一条红色栏列出它们（点名字出处理菜单），行内也有 ⛔ 标记；抽屉顶部同样给按钮。
 
-**强制对齐**（"这个仓库我不关心"）：放弃进行中的操作 → 改动 `git stash push`（不丢）→ fetch → 旧 HEAD 和旧的同名分支若不是目标的祖先，存到 `refs/apiary/backup/` → `checkout -B <branch> <remote>/<branch>` 并设 upstream（tag / commit：detach）。抽屉的"备份"段列出这些 ref，可"恢复为分支"或删除。
+**强制对齐**（"这个仓库我不关心"）：放弃进行中的操作 → 改动 `git stash push`（不丢）→ fetch → 旧 HEAD 和旧的同名分支若不是目标的祖先，存到 `refs/workbay/backup/` → `checkout -B <branch> <remote>/<branch>` 并设 upstream（tag / commit：detach）。抽屉的"备份"段列出这些 ref，可"恢复为分支"或删除。
 
 ### 切换 yml
 
@@ -190,7 +192,7 @@ RepoStatus
 一个 HTML 外壳（写在 server.py 里），`app.css`，JS 按部分分文件：`app.js`（工具函数、API、共享状态、tab、SSE）、`ws.js`（卡片、仓库表）、`dialogs.js`（批量栏、west update、命令、Manifest、自动刷新）、`drawer.js`、`jobs.js`、`settings.js`。三个视图：
 
 - **Workspaces**：过滤框、类型筛选、"只看有问题"；workspace 卡片默认折叠，显示汇总徽标，有问题的排在前面；展开后是仓库表（west 多一列 manifest ✓/⚠/○）；行内按钮 fetch / pull / ⋯；勾选后出现批量栏。卡片按钮：west update、Fetch、命令…、Manifest（仅 west）、打开▾。
-- **Repo 抽屉**：点行打开。头部快捷打开按钮；卡住时顶部红框给处理按钮；改动列表（勾选 stage）；点文件看 diff；commit 框（载入模板、高亮、amend、hook 状态）；最近 10 条提交，每条带上面的 ref（当前分支、本地 / 远端分支、tag、manifest-rev），另有和 upstream 的 ↑↓、HEAD 包含的最近 tag；upstream 有 HEAD 没有的 commit 时，在上方单列最新 3 个；有 Apiary 备份或 stash 时列出。
+- **Repo 抽屉**：点行打开。头部快捷打开按钮；卡住时顶部红框给处理按钮；改动列表（勾选 stage）；点文件看 diff；commit 框（载入模板、高亮、amend、hook 状态）；最近 10 条提交，每条带上面的 ref（当前分支、本地 / 远端分支、tag、manifest-rev），另有和 upstream 的 ↑↓、HEAD 包含的最近 tag；upstream 有 HEAD 没有的 commit 时，在上方单列最新 3 个；有 Workbay 备份或 stash 时列出。
 - **Manifest 弹层**：Projects 表 / Raw 原文。
 - **Jobs**：左边列表，右边按步骤分段的输出，失败段标红，可取消。
 - **Settings**：扫描根、手动添加 / 隐藏、west 路径、刷新间隔（默认 60 s，页面重新获得焦点时也刷新）、终端程序（Windows Terminal / cmd / Git Bash）、最近的自定义命令。
@@ -227,7 +229,7 @@ RepoStatus
 
 ## 11. 编译（gcc · defconfig 工程）
 
-只做 defconfig 写法的 gcc 工程（`defconfig.<app>.<IC>.<variant...>`），Keil 照旧开 IDE。烧录只接 J-Link（x2l，FPGA 阶段）；x2j / x3j / x3k 用各自的 MPTool / 工具手动烧，Apiary 只给 bin。
+只做 defconfig 写法的 gcc 工程（`defconfig.<app>.<IC>.<variant...>`），Keil 照旧开 IDE。烧录只接 J-Link（x2l，FPGA 阶段）；x2j / x3j / x3k 用各自的 MPTool / 工具手动烧，Workbay 只给 bin。
 
 ### 每个 workspace 一个 IC
 
@@ -256,17 +258,17 @@ IC 和做法的对应是一张表（`build.py` 里），加 IC 加一行。
 | build | `cmake --build <build> -j <核数>` | `cmake --build <build>` |
 | 烧录 | 无（给 bin） | `cmake --build <build> --target <app>_flash`，build.ninja 里有这个 target 才给按钮 |
 
-- build 目录：`<ws>\build-cmake\apiary\<app>.<variant>`，和手写 bat 的 `build-cmake\<app>` 分开。
+- build 目录：`<ws>\build-cmake\workbay\<app>.<variant>`，和手写 bat 的 `build-cmake\<app>` 分开。
 - 重新 configure：没有 `CMakeCache.txt`，或 cache 里的 `kconfig_path` / 生成器和这次的不同。面板另有"重新 configure"、"清掉 build 目录"（确认）。
 - gcc：Settings `gcc_dir`，空时找 PATH 里的 `arm-none-eabi-gcc`，再找 `C:\Arm GNU Toolchain arm-none-eabi\*\bin`（最新的）。
 - 实测（2026-11-13）：beex `ppt_sync_master` 按上表 configure 5 s、build 27 s，`bin\ppt_sync_master.bin` 和 `_MP_*.bin`，有 `ppt_sync_master_flash`；sync lib 目录有 3 个 defconfig，必须带 kconfig_path。bbpro4 x3k `template ap.bank0` configure 通过，link 缺 `soc_log_module_init`（代码问题，不是做法问题）。
 
 ### 执行（build.py）
 
-和 sync.py 一样是 Job 的一步、标准库独立脚本：`python apiary/build.py <build|flash> --kind realtek|humac --src <dir> --defconfig <路径> --build-dir <dir> [--gcc <dir>] [--reconfigure]`。cmake 按 `$APIARY_CMAKE`（测试用的替身）→ PATH → `C:\Program Files\CMake\bin` 找。
+和 sync.py 一样是 Job 的一步、标准库独立脚本：`python workbay/build.py <build|flash> --kind realtek|humac --src <dir> --defconfig <路径> --build-dir <dir> [--gcc <dir>] [--reconfigure]`。cmake 按 `$WORKBAY_CMAKE`（测试用的替身）→ PATH → `C:\Program Files\CMake\bin` 找。
 
-- 需要时先 configure，再 build（flash：build 带 `<app>_flash` target）；输出原样转发，同时写 `<build>\apiary_build.log`。
-- 结束写 `<build>\apiary_build.json`：开始 / 结束时间、rc、error / warning 数、诊断（最多 200 条）、产物（`**\bin\*.bin`、`*.hex`、`*.elf` 的路径、大小、mtime）。面板读它显示上次结果，重启工具也在。
+- 需要时先 configure，再 build（flash：build 带 `<app>_flash` target）；输出原样转发，同时写 `<build>\workbay_build.log`。
+- 结束写 `<build>\workbay_build.json`：开始 / 结束时间、rc、error / warning 数、诊断（最多 200 条）、产物（`**\bin\*.bin`、`*.hex`、`*.elf` 的路径、大小、mtime）。面板读它显示上次结果，重启工具也在。
 - 最后一行 `@@note 0 error · 2 warning · ppt_sync_master.bin 58 KB`。
 - 诊断：gcc `file:line:col: error|warning|fatal error: msg`；ld `file:line:(section): msg`（如 undefined reference，算 error）；`collect2.exe: error:`、`ld.exe: ...` 无行号的也收。源文件是绝对路径。
 - 一个 target 一步，勾选多个顺序编；不同 workspace 本来就能并行。
@@ -280,7 +282,7 @@ IC 和做法的对应是一张表（`build.py` 里），加 IC 加一行。
 
 在不同目录开的 Claude Code 会话集中列出，可预览、在原目录 resume、勾选删除。
 
-`apiary/claude_history.py`。
+`workbay/claude_history.py`。
 
 - 数据（`$CLAUDE_CONFIG_DIR`，否则 `~\.claude`）：一个会话是 `projects\<目录>\<sid>.jsonl`（一行一条记录），同 id 的还有 `projects\<目录>\<sid>\`（subagents、tool-results）、`file-history\<sid>\`、`session-env\<sid>\`。`projects\<目录>\memory\` 和 `history.jsonl`（输入历史）不属于会话，**永远不碰**。格式是 Claude Code 内部的，解析从宽：读不出的字段留空，不报错。
 - 列表：每个 jsonl 从头读到第一句用户输入（前面的 hook 输出可能很大；最多 4 MB），再读最后 64 KB——取 `cwd`、`gitBranch`、开始 / 结束时间、第一句（跳过工具结果、`<…>` 开头的命令回显 / 提醒、isMeta、sidechain）、`ai-title`（`/resume` 里看到的标题）、`last-prompt`。按 (路径, mtime, size) 缓存：本机 79 个会话 0.2 s，再读 0.01 s。显示：按天分组，标题或第一句、时间、workspace（cwd 在哪个 workspace 里）、目录、大小、最后的模型和上下文占比、是否在运行。
@@ -288,7 +290,7 @@ IC 和做法的对应是一张表（`build.py` 里），加 IC 加一行。
 - 在运行：Claude Code 每个进程写 `sessions\<pid>.json`（sessionId、procStart = 进程创建时间的 FILETIME、status busy / idle）。pid 活着且创建时间对得上（差 < 1 s）才算——崩溃留下的文件、pid 被别的程序复用都排除。在运行的显示"● 运行中 / 打开着"，删除拒绝，继续时先提醒。过滤：关键字、workspace / 不在 workspace 里、"很短的"（< 50 KB 或没说话）、"N 天前的"。
 - 预览：整份流式读，只留非 sidechain 的用户输入、斜杠命令、assistant 文字；连续的工具调用折成一行"🔧 Bash ×2 · Read"；每条截 2000 字，最多 300 条。
 - 继续：在 `cwd` 开新 cmd 窗口跑 Settings 的 claude 命令，去掉其中的 `--continue` / `-c` / `--resume X`，加 `--resume <sid>`；cwd 不在了就提示。另可复制 `cd /d … && claude --resume <sid>`。
-- 删除：勾选，确认后把上面四处移到 `apiary-trash\<时间>\`（同样的相对路径），在运行的、2 分钟内改过的拒绝。回收站弹窗：每批可"恢复"（原位置已有同名的项留在回收站）或"永久删除"，另有"清空回收站"（确认）、"打开目录"。
+- 删除：勾选，确认后把上面四处移到 `workbay-trash\<时间>\`（同样的相对路径），在运行的、2 分钟内改过的拒绝。回收站弹窗：每批可"恢复"（原位置已有同名的项留在回收站）或"永久删除"，另有"清空回收站"（确认）、"打开目录"。
 - 页面：顶部 tab"Claude History"，左列表（勾选、全选当前过滤结果、批量删除）+ 右预览。
 
 ## 13. 测试

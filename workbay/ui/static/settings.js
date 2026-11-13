@@ -13,7 +13,7 @@ VIEWS.settings = {
     const v = s.settings;
     const ta = (name, rows) => h("textarea", { name, rows, value: v[name].join("\n") });
     const roots = ta("roots", 3), added = ta("added", 3), hidden = ta("hidden", 3);
-    const west = h("input", { type: "text", style: "width:100%", value: v.west_path, placeholder: "留空：PATH 里的 west，找不到就用 Apiary 自带的" });
+    const west = h("input", { type: "text", style: "width:100%", value: v.west_path, placeholder: "留空：PATH 里的 west，找不到就用 Workbay 自带的" });
     const refresh = h("input", { type: "number", min: 0, value: v.refresh_s, style: "width:90px" });
     const claude = h("input", { type: "text", style: "width:100%", value: v.claude_cmd, placeholder: "claude" });
     const gcc = h("input", { type: "text", style: "width:100%", value: v.gcc_dir, placeholder: "留空：PATH 里的 arm-none-eabi-gcc，再找 C:\\Arm GNU Toolchain arm-none-eabi\\*\\bin" });
@@ -55,6 +55,6 @@ VIEWS.settings = {
           h("div.k", "Claude Code"), h("div.mono", t.claude || "未找到（不在 PATH）"),
           h("div.k", "Windows Terminal"), h("div.mono", t.wt || "未找到"))),
       h("div.card", h("h3", "关于"), h("div.small.muted",
-        "Apiary · Workspace Manager — 本地页面，只监听 127.0.0.1。状态只读本地，fetch / pull / west update 只在你点击时执行。")));
+        "Workbay — 本地页面，只监听 127.0.0.1。状态只读本地，fetch / pull / west update 只在你点击时执行。")));
   },
 };

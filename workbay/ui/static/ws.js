@@ -2,7 +2,7 @@
 // dialogs and the manifest panel.
 "use strict";
 
-const F = { text: localStorage.getItem("apiary.filter") || "", kind: "", attention: false };
+const F = { text: localStorage.getItem("workbay.filter") || "", kind: "", attention: false };
 let lastRead = 0, reading = false;
 
 async function loadWorkspaces(rescan = false) {
@@ -57,7 +57,7 @@ VIEWS.workspaces = {
   title: "Workspaces",
   render(main) {
     const filter = h("input", { type: "text", placeholder: "过滤 workspace / repo", value: F.text,
-      oninput: e => { F.text = e.target.value; localStorage.setItem("apiary.filter", F.text); paintList(); } });
+      oninput: e => { F.text = e.target.value; localStorage.setItem("workbay.filter", F.text); paintList(); } });
     const kind = h("select", { onchange: e => { F.kind = e.target.value; paintList(); } },
       [["", "全部类型"], ["west", "west"], ["multi", "multi"], ["single", "single"]].map(([v, t]) =>
         h("option", { value: v, selected: F.kind === v }, t)));

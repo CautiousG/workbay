@@ -1,5 +1,6 @@
 """The settings, one JSON file per user (not in the repository, so a git pull of the
-tool never touches them): %APPDATA%/apiary/settings.json, or $APIARY_HOME/settings.json."""
+tool never touches them): %APPDATA%/workbay/settings.json, or $WORKBAY_HOME/settings.json.
+The first run copies %APPDATA%/apiary/settings.json (this tool's old name) when it is there."""
 import json
 import os
 from dataclasses import asdict, dataclass, field, fields
@@ -42,7 +43,7 @@ class Settings:
 
 
 def home():
-    base = os.environ.get("APIARY_HOME") or os.path.join(os.environ.get("APPDATA") or Path.home(), "apiary")
+    base = os.environ.get("WORKBAY_HOME") or os.path.join(os.environ.get("APPDATA") or Path.home(), "workbay")
     return Path(base)
 
 
@@ -79,9 +80,19 @@ def _clean(data):
     return out
 
 
+def _old_path():
+    if os.environ.get("WORKBAY_HOME"):
+        return None
+    return Path(os.environ.get("APPDATA") or Path.home()) / "apiary" / "settings.json"
+
+
 def load():
+    path = settings_path()
+    old = _old_path()
+    if not path.exists() and old and old.exists():
+        path = old                             # saved to the new place on the first change
     try:
-        data = json.loads(settings_path().read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return Settings()
     return Settings(**_clean(data if isinstance(data, dict) else {}))

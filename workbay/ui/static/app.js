@@ -1,4 +1,4 @@
-// Apiary · Workspace Manager - the core: helpers, the API, shared state, tabs, events.
+// Workbay - the core: helpers, the API, shared state, tabs, events.
 // The views are in ws.js (Workspaces + manifest), drawer.js (one repo), jobs.js, settings.js;
 // each registers itself in VIEWS.
 "use strict";
@@ -69,7 +69,7 @@ async function call(name, args = {}, method = "POST") {
     res = await fetch(url, opts);
     data = await res.json();
   } catch (e) {
-    throw new ApiError("连不上 Apiary 服务（窗口关了？）");
+    throw new ApiError("连不上 Workbay 服务（窗口关了？）");
   }
   if (!res.ok || data.error) throw new ApiError(data.error || `HTTP ${res.status}`);
   return data;
@@ -156,20 +156,28 @@ function openItems(ws, repo) {
   ];
 }
 
+// the page's own state from when this tool was called Apiary (same origin, same port)
+for (const k of Object.keys(localStorage))
+  if (k.startsWith("apiary.")) {
+    const nk = "workbay." + k.slice(7);
+    if (localStorage.getItem(nk) == null) localStorage.setItem(nk, localStorage.getItem(k));
+    localStorage.removeItem(k);
+  }
+
 // --- shared state ---
 const S = {
   workspaces: [],        // from /api/workspaces
   status: {},            // ws_id -> {summary, busy, repos: {repo_id: status}}
   loading: new Set(),    // ws ids being read
-  open: new Set(JSON.parse(localStorage.getItem("apiary.open") || "[]")),
+  open: new Set(JSON.parse(localStorage.getItem("workbay.open") || "[]")),
   selected: {},          // ws_id -> Set(repo_id)
   settings: null,
   env: null,
   jobs: [],
-  view: localStorage.getItem("apiary.view") || "workspaces",
+  view: localStorage.getItem("workbay.view") || "workspaces",
 };
 const ws_by_id = id => S.workspaces.find(w => w.id === id);
-const saveOpen = () => localStorage.setItem("apiary.open", JSON.stringify([...S.open]));
+const saveOpen = () => localStorage.setItem("workbay.open", JSON.stringify([...S.open]));
 
 const VIEWS = {};       // name -> {title, render(main), badge?()}
 
@@ -186,7 +194,7 @@ function render() {
 
 function show(name) {
   S.view = name;
-  localStorage.setItem("apiary.view", name);
+  localStorage.setItem("workbay.view", name);
   render();
 }
 
@@ -211,13 +219,13 @@ const JOB_LISTENERS = [];
 function onJobEvent(fn) { JOB_LISTENERS.push(fn); }
 
 function followEvents() {
-  let from = Number(sessionStorage.getItem("apiary.ev") || 0);
+  let from = Number(sessionStorage.getItem("workbay.ev") || 0);
   const es = new EventSource("/api/events?from=" + from);
   es.onmessage = e => {
     const ev = JSON.parse(e.data);
     for (const fn of JOB_LISTENERS) fn(ev);
   };
-  es.addEventListener("index", e => sessionStorage.setItem("apiary.ev", e.data));
+  es.addEventListener("index", e => sessionStorage.setItem("workbay.ev", e.data));
   es.onerror = () => { es.close(); setTimeout(followEvents, 3000); };
 }
 
@@ -237,10 +245,10 @@ function waitJob(id) {
 // --- theme ---
 function setTheme(t) {
   document.documentElement.dataset.theme = t;
-  localStorage.setItem("apiary.theme", t);
+  localStorage.setItem("workbay.theme", t);
 }
 $("#theme").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
-setTheme(localStorage.getItem("apiary.theme") || "dark");
+setTheme(localStorage.getItem("workbay.theme") || "dark");
 
 // --- start ---
 async function boot() {
@@ -250,7 +258,7 @@ async function boot() {
   if (env && !env.git) {
     const b = $("#banner");
     b.hidden = false;
-    b.textContent = "找不到 git：请安装 Git for Windows 并加入 PATH，然后重启 Apiary。";
+    b.textContent = "找不到 git：请安装 Git for Windows 并加入 PATH，然后重启 Workbay。";
   }
   followEvents();
   render();

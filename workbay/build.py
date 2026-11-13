@@ -12,8 +12,8 @@ A defconfig project is a file  defconfig.<app>.<IC>.<variant...>  ; two ways to 
 A Job step runs it as `python build.py build|flash --kind K --src DIR --defconfig F
 --build-dir D [--gcc DIR] [--reconfigure]`, so the Job's output, cancel and workspace
 lock apply. It configures when needed, builds (and flashes), forwards the output, and
-writes <build>/apiary_build.json (the result the page shows, also after a restart) and
-<build>/apiary_build.log. Exit code 0 done, 1 failed; the last line is "@@note <text>".
+writes <build>/workbay_build.json (the result the page shows, also after a restart) and
+<build>/workbay_build.log. Exit code 0 done, 1 failed; the last line is "@@note <text>".
 
 The page's side (which IC a workspace is, the targets in it) is scan() / default_ic()
 below. Standard library only: it runs as a script, outside the package.
@@ -29,8 +29,8 @@ import sys
 import time
 
 NOTE = "@@note "
-RESULT = "apiary_build.json"
-LOG = "apiary_build.log"
+RESULT = "workbay_build.json"
+LOG = "workbay_build.log"
 MAX_DIAGS = 200
 
 # IC -> how it builds. Matched without case (RTL87X2L = RTL87x2L).
@@ -101,7 +101,7 @@ def scan(ws_path, ic):
     for key, same in names.items():
         for t in same:
             tail = "" if len(same) == 1 else "-" + hashlib.sha1(t["id"].encode()).hexdigest()[:6]
-            t["build_dir"] = os.path.join(ws_path, "build-cmake", "apiary", key + tail)
+            t["build_dir"] = os.path.join(ws_path, "build-cmake", "workbay", key + tail)
             t["flash"] = kind == "humac" and not t["lib"]
     return sorted(found, key=lambda t: (not t["ppt"], t["app"].lower(), t["variant"].lower(), t["id"]))
 
@@ -133,8 +133,8 @@ def find_gcc(setting=""):
 
 
 def find_cmake():
-    """$APIARY_CMAKE (another cmake, the tests' stand-in), PATH, the usual install."""
-    exe = os.environ.get("APIARY_CMAKE") or shutil.which("cmake")
+    """$WORKBAY_CMAKE (another cmake, the tests' stand-in), PATH, the usual install."""
+    exe = os.environ.get("WORKBAY_CMAKE") or shutil.which("cmake")
     if exe:
         return exe
     exe = r"C:\Program Files\CMake\bin\cmake.exe"

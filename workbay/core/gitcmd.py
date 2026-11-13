@@ -1,4 +1,4 @@
-"""The one way Apiary runs git (and other short tools): never through a shell, never
+"""The one way Workbay runs git (and other short tools): never through a shell, never
 waiting on a password prompt, output decoded as UTF-8 whatever the console code page."""
 import os
 import shutil

@@ -5,10 +5,10 @@ import time
 import pytest
 from conftest import commit_all, git
 
-from apiary import ops
-from apiary.config import Settings
-from apiary.jobs import Step
-from apiary.ui.api import Api, ApiError
+from workbay.ws import ops
+from workbay.core.config import Settings
+from workbay.core.jobs import Step
+from workbay.ui.api import Api, ApiError
 
 
 def wait_job(api, job_id, timeout=30.0):

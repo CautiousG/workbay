@@ -10,9 +10,10 @@ import sys
 import tempfile
 from urllib.parse import urlparse
 
-from . import gitcmd, westcli
+from ..core import gitcmd
+from . import westcli
 from .gitstat import in_progress, parse_porcelain
-from .jobs import Step
+from ..core.jobs import Step
 
 MAX_DIFF = 400_000
 MAX_CHANGES = 2000
@@ -215,7 +216,7 @@ def commit(path, message, amend=False):
         raise OpError("commit message 是空的")
     if not amend and not gitcmd.run(["diff", "--cached", "--name-only"], path).strip():
         raise OpError("没有 staged 的改动，先勾选要提交的文件")
-    fd, tmp = tempfile.mkstemp(prefix="apiary-msg-", suffix=".txt")
+    fd, tmp = tempfile.mkstemp(prefix="workbay-msg-", suffix=".txt")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
             f.write(message)
@@ -467,7 +468,7 @@ def align_risks(repos, statuses):
         if st.ahead:
             parts.append(f"{st.ahead} 个本地 commit 移到备份 ref")
         elif st.on_manifest is False:
-            parts.append("当前 HEAD 备份到 refs/apiary/backup/")
+            parts.append("当前 HEAD 备份到 refs/workbay/backup/")
         out.append(f"{r.name}: " + ("，".join(parts) if parts else "直接对齐"))
     return out
 
@@ -503,16 +504,20 @@ def unstick(path, action):
         raise OpError(f"{op} --{action} 失败{hint}：{exc}") from None
 
 
+# refs/apiary/backup/: what this tool kept when it was still called Apiary
+BACKUP_PREFIXES = ("refs/workbay/backup/", "refs/apiary/backup/")
+
+
 def backups(path):
     """The refs a forced align kept: [{ref, sha, subject, time}], newest first."""
-    text = gitcmd.run(["for-each-ref", "--sort=-refname", "--format=%(refname)%1f%(objectname:short)%1f%(subject)%1f%(committerdate:unix)",
-                       "refs/apiary/backup/"], path, check=False)
+    text = gitcmd.run(["for-each-ref", "--format=%(refname)%1f%(objectname:short)%1f%(subject)%1f%(committerdate:unix)",
+                       *BACKUP_PREFIXES], path, check=False)
     out = []
     for line in text.splitlines():
         parts = line.split("\x1f")
         if len(parts) == 4:
             out.append({"ref": parts[0], "sha": parts[1], "subject": parts[2], "time": int(parts[3] or 0)})
-    return out
+    return sorted(out, key=lambda b: b["ref"].rsplit("/", 1)[-1], reverse=True)    # <time>-<sha>
 
 
 def stash_count(path):
@@ -521,9 +526,9 @@ def stash_count(path):
 
 def restore_backup(path, ref):
     """A new branch at a backup ref -> its name (the work tree stays as it is)."""
-    if not ref.startswith("refs/apiary/backup/"):
-        raise OpError("只能恢复 refs/apiary/backup/ 下的备份")
-    name = "apiary-restore-" + ref.rsplit("/", 1)[-1]
+    if not ref.startswith(BACKUP_PREFIXES):
+        raise OpError("只能恢复 refs/workbay/backup/ 下的备份")
+    name = "workbay-restore-" + ref.rsplit("/", 1)[-1]
     try:
         gitcmd.run(["branch", name, ref], path)
     except gitcmd.GitError as exc:
@@ -532,8 +537,8 @@ def restore_backup(path, ref):
 
 
 def drop_backup(path, ref):
-    if not ref.startswith("refs/apiary/backup/"):
-        raise OpError("只能删除 refs/apiary/backup/ 下的备份")
+    if not ref.startswith(BACKUP_PREFIXES):
+        raise OpError("只能删除 refs/workbay/backup/ 下的备份")
     gitcmd.run(["update-ref", "-d", ref], path)
 
 

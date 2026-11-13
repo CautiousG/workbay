@@ -23,7 +23,8 @@ MODEL_TAIL = 2 * 1024 * 1024      # how far back to look for Claude's last reply
 BUSY_S = 120                      # changed this recently: maybe in use, not deleted
 MAX_PREVIEW = 300
 MAX_TEXT = 2000
-TRASH = "apiary-trash"
+TRASH = "workbay-trash"
+OLD_TRASH = "apiary-trash"                   # this tool's trash when it was called Apiary
 _SID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 # where else a session keeps things, by its id (relative to home)
 _BESIDE = ("file-history", "session-env")
@@ -356,7 +357,7 @@ def _parts(path):
 
 
 def delete(session_ids, now=None):
-    """Move the sessions to <home>/apiary-trash/<time>/ (same layout) -> {moved, refused}."""
+    """Move the sessions to <home>/workbay-trash/<time>/ (same layout) -> {moved, refused}."""
     now = now or time.time()
     batch = os.path.join(home(), TRASH, time.strftime("%Y%m%d-%H%M%S", time.localtime(now)))
     moved, refused = [], []
@@ -382,16 +383,26 @@ def delete(session_ids, now=None):
     return {"moved": moved, "refused": refused, "batch": batch if moved else None}
 
 
+def _batches():
+    """[(name, path)] of every delete batch, the newest first; a name is unique across both trashes."""
+    found = {}
+    for t in (OLD_TRASH, TRASH):
+        base = os.path.join(home(), t)
+        try:
+            names = os.listdir(base)
+        except OSError:
+            continue
+        for n in names:
+            if os.path.isdir(os.path.join(base, n)):
+                found[n] = os.path.join(base, n)
+    return sorted(found.items(), reverse=True)
+
+
 def trash():
     """The delete batches, the newest first: [{name, path, sessions: [summary]}]."""
-    base = os.path.join(home(), TRASH)
     out = []
-    try:
-        names = sorted(os.listdir(base), reverse=True)
-    except OSError:
-        return []
-    for name in names:
-        proj = os.path.join(base, name, "projects")
+    for name, path in _batches():
+        proj = os.path.join(path, "projects")
         items = []
         for d in os.listdir(proj) if os.path.isdir(proj) else []:
             for n in os.listdir(os.path.join(proj, d)):
@@ -400,15 +411,15 @@ def trash():
                         items.append(summarize(os.path.join(proj, d, n)))
                     except OSError:
                         pass
-        out.append({"name": name, "path": os.path.join(base, name), "sessions": items})
+        out.append({"name": name, "path": path, "sessions": items})
     return out
 
 
 def _batch(name):
     if not re.match(r"^\d{8}-\d{6}$", name or ""):
         raise HistoryError("不是回收站里的一批")
-    path = os.path.join(home(), TRASH, name)
-    if not os.path.isdir(path):
+    path = dict(_batches()).get(name)
+    if not path:
         raise HistoryError("回收站里没有这一批")
     return path
 
@@ -443,7 +454,7 @@ def empty_trash(name=None):
     if name:
         shutil.rmtree(_batch(name))
         return {"removed": [name]}
-    base = os.path.join(home(), TRASH)
-    names = os.listdir(base) if os.path.isdir(base) else []
-    shutil.rmtree(base, ignore_errors=True)
+    names = [n for n, _ in _batches()]
+    for t in (TRASH, OLD_TRASH):
+        shutil.rmtree(os.path.join(home(), t), ignore_errors=True)
     return {"removed": names}

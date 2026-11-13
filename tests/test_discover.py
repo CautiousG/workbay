@@ -3,8 +3,8 @@ import os
 
 from conftest import commit_all, git, init_repo, make_west_ws
 
-from apiary import discover
-from apiary.config import Settings
+from workbay.ws import discover
+from workbay.core.config import Settings
 
 
 def build_root(tmp_path):

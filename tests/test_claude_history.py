@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from apiary import claude_history as ch
+from workbay import claude_history as ch
 
 SID1 = "11111111-1111-1111-1111-111111111111"
 SID2 = "22222222-2222-2222-2222-222222222222"
@@ -118,6 +118,21 @@ def test_delete_restore_and_empty(claude_home):
         ch.restore("../../x")
 
 
+def test_trash_from_when_it_was_apiary(claude_home):
+    home, proj, work = claude_home
+    ch.delete([SID1])
+    new = ch.trash()[0]["name"]
+    old_dir = home / ch.OLD_TRASH / "20250101-000000"
+    os.renames(home / ch.TRASH / new, old_dir)                    # the same batch, in the old trash
+    assert [b["name"] for b in ch.trash()] == ["20250101-000000"]
+    assert ch.restore("20250101-000000")["restored"] == [SID1]
+    ch.delete([SID1])
+    os.makedirs(old_dir / "projects")
+    assert len(ch.trash()) == 2
+    assert len(ch.empty_trash()["removed"]) == 2 and ch.trash() == []
+    assert not (home / ch.OLD_TRASH).exists()
+
+
 def test_delete_refuses_a_session_in_use(claude_home):
     home, proj, work = claude_home
     os.utime(proj / f"{SID2}.jsonl", None)                       # just now
@@ -191,7 +206,7 @@ def test_api_claude_calls(api_env, claude_home):
     batch = api.claude_trash()["batches"][0]["name"]
     assert api.claude_restore(batch)["restored"] == [SID1]
     assert api.claude_empty_trash()["need_confirm"]
-    from apiary.ui.api import ApiError
+    from workbay.ui.api import ApiError
     with pytest.raises(ApiError):
         api.claude_preview("nope")
     with pytest.raises(ApiError):

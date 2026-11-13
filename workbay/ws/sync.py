@@ -9,7 +9,7 @@ the tests call sync() / align() directly.
            one; a tag / commit -> detach there. Anything that fails puts the repository
            back as it was. Uncommitted changes: skipped, or stashed around it (autostash).
     align  "I do not care about this one": abort what is half done, stash the changes,
-           keep the old HEAD under refs/apiary/backup/, reset the branch to the remote.
+           keep the old HEAD under refs/workbay/backup/, reset the branch to the remote.
 
 Exit code: 0 done, 1 failed, 2 skipped (nothing touched). The last line is
 "@@note <text>", the one-line outcome the page shows next to the step.
@@ -24,7 +24,7 @@ import sys
 import time
 
 OK, FAILED, SKIPPED = 0, 1, 2
-BACKUP_PREFIX = "refs/apiary/backup/"
+BACKUP_PREFIX = "refs/workbay/backup/"
 NOTE = "@@note "
 _SHA = re.compile(r"^[0-9a-f]{7,40}$")
 # What a half-done operation leaves in the git dir -> the operation (as gitstat.py).
@@ -106,7 +106,7 @@ def fetch(g, remote, revision):
 
 
 def _stash(g, why):
-    g("stash", "push", "-m", f"apiary {why} {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    g("stash", "push", "-m", f"workbay {why} {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
 
 def _unstash(g):
@@ -195,7 +195,7 @@ def sync(path, remote, revision, url="", autostash=False, out=print):
 
 def align(path, remote, revision, url="", out=print):
     """-> (exit code, note). Nothing is thrown away: changes go to the stash, the old
-    HEAD (and the old branch, when it moves) to refs/apiary/backup/."""
+    HEAD (and the old branch, when it moves) to refs/workbay/backup/."""
     g = Git(path, out)
     notes = []
     try:

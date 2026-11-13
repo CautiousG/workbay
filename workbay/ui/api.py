@@ -12,8 +12,10 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from .. import build, claude_history, config, discover, gitcmd, gitstat, ops, westcli
-from ..jobs import Busy, Jobs, Step
+from .. import build, claude_history
+from ..core import config, gitcmd
+from ..ws import discover, gitstat, ops, westcli
+from ..core.jobs import Busy, Jobs, Step
 
 BUILD_SCRIPT = build.__file__
 
@@ -80,7 +82,7 @@ class Api:
         self._save = save
         self.jobs = Jobs()
         self._lock = threading.Lock()
-        self._pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="apiary")
+        self._pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="workbay")
         self._workspaces = None
         self.scanned_at = None
         self._targets = {}          # (ws id, IC) -> build.scan()
@@ -459,7 +461,7 @@ class Api:
             raise ApiError("这个 workspace 正在执行任务，等它结束", 409)
         removed = []
         for t in picked:
-            if os.path.normcase(os.path.join(ws.path, "build-cmake", "apiary")) not in os.path.normcase(t["build_dir"]):
+            if os.path.normcase(os.path.join(ws.path, "build-cmake", "workbay")) not in os.path.normcase(t["build_dir"]):
                 continue                                   # only our own build directories
             shutil.rmtree(t["build_dir"], ignore_errors=True)
             removed.append(t["build_dir"])

@@ -30,13 +30,13 @@ PAGE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Apiary · Workspace Manager</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐝</text></svg>">
+<title>Workbay</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬢</text></svg>">
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="logo">⬢</span> Apiary <span class="sub">· Workspace Manager</span></div>
+  <div class="brand"><span class="logo">⬢</span> Workbay <span class="sub">· workbench</span></div>
   <nav id="tabs"></nav>
   <div class="spacer"></div>
   <span id="jobs-pill" class="pill idle"></span>
@@ -125,7 +125,7 @@ def _list(value):
 
 def _handler(api: Api):
     class Handler(BaseHTTPRequestHandler):
-        server_version = "apiary-ui"
+        server_version = "workbay-ui"
 
         def log_message(self, fmt, *args):
             pass
@@ -243,7 +243,7 @@ def serve(port=8780, open_browser=True):
     except OSError:
         server = make_server(api, 0)
     url = f"http://127.0.0.1:{server.server_address[1]}/"
-    print(f"Apiary · Workspace Manager at {url}  (Ctrl+C to stop)")
+    print(f"Workbay at {url}  (Ctrl+C to stop)")
     if open_browser:
         threading.Timer(0.3, webbrowser.open, (url,)).start()
     try:

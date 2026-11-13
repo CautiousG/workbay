@@ -1,11 +1,12 @@
-"""python -m apiary ui | status"""
+"""python -m workbay ui | status"""
 import argparse
 import sys
 import time
 
 
 def _status(args):
-    from . import config, discover, gitstat
+    from .core import config
+    from .ws import discover, gitstat
     settings = config.load()
     if args.root:
         settings.roots, settings.added = args.root, []
@@ -39,7 +40,7 @@ def _status(args):
 def main(argv=None):
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    p = argparse.ArgumentParser(prog="apiary", description="Apiary · Workspace Manager")
+    p = argparse.ArgumentParser(prog="workbay", description="Workbay")
     sub = p.add_subparsers(dest="cmd")
     ui = sub.add_parser("ui", help="the web UI (default)")
     ui.add_argument("--port", type=int, default=8780)

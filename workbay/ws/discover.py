@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass, field
 
 from . import manifest as manifest_mod
-from .gitcmd import is_repo_dir
+from ..core.gitcmd import is_repo_dir
 
 SKIP = {"$recycle.bin", "system volume information", "node_modules", ".venv", "venv", "__pycache__"}
 MULTI_DEPTH = 2

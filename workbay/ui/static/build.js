@@ -7,7 +7,7 @@ const fmtTook = r => r && r.started && r.ended ? `${Math.round(r.ended - r.start
 
 async function buildPanel(ws) {
   const sel = new Set();
-  let data = null, text = localStorage.getItem("apiary.bfilter") || "";
+  let data = null, text = localStorage.getItem("workbay.bfilter") || "";
   const body = h("div");
   const load = async (rescan = false) => {
     body.replaceChildren(h("span.spin"), rescan ? " 重新扫描 defconfig…" : " 读取 target…");
@@ -21,7 +21,7 @@ async function buildPanel(ws) {
       h("option", { value: "", selected: !data.ic }, "（不编译）"),
       data.ics.map(ic => h("option", { value: ic, selected: data.ic === ic }, ic + (ic === data.default_ic ? "（按目录名）" : ""))));
     const filter = h("input", { type: "text", placeholder: "搜索 app / variant / 路径", value: text, style: "width:260px",
-      oninput: e => { text = e.target.value; localStorage.setItem("apiary.bfilter", text); fill(); } });
+      oninput: e => { text = e.target.value; localStorage.setItem("workbay.bfilter", text); fill(); } });
     const tbody = h("tbody");
     const t = data.tools;
     const missing = [!t.cmake && "cmake", !t.gcc && "arm-none-eabi-gcc", data.targets.some(x => x.kind === "humac") && !t.ninja && "ninja"].filter(Boolean);
@@ -137,7 +137,7 @@ function resultBlock(ws, x, res, step) {
       h("span.muted.small", fmtTook(res)), h("div.spacer"),
       h("button.ghost.small", { onclick: () => act("reveal", { ws: ws.id, path: x.build_dir }) }, "打开 build 目录")),
     diags.length ? h("div.diags", [...errs, ...warns].slice(0, 80).map(line),
-      diags.length > 80 ? h("div.muted.small", `还有 ${diags.length - 80} 条，见 apiary_build.log`) : null) : null,
+      diags.length > 80 ? h("div.muted.small", `还有 ${diags.length - 80} 条，见 workbay_build.log`) : null) : null,
     bins.length ? h("div.small", { style: "margin-top:6px" }, h("span.muted", "产物："),
       bins.slice(0, 8).map(p => h("a.mono", { href: "#", style: "margin-right:12px", title: p.path,
         onclick: e => { e.preventDefault(); act("reveal", { ws: ws.id, path: p.path }); } },
