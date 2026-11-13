@@ -6,7 +6,7 @@
 
 本地目录下堆着很多 workspace：新 IC 用 west manifest 管理，老 IC 是一个目录下放几个独立 git clone，还有单个 git 仓库。Workbay 是一个本地 Web UI，一页看清所有 workspace 的状态，点击就能 fetch / pull / `west update` / 跑自定义命令 / 提交，并能查看 manifest 内容。
 
-放在 GitHub 私有仓库 `CautiousG/workbay`（原来在 `bt1sd1/others/Apiary`，那份冻结），拉下来双击 `ui.bat`。不安装 Workbay 本身（避免 pip 构建依赖网络、避免在共享目录里留 egg-info），直接 `python -m workbay` 从目录运行；只在缺 west 时 `pip install --user west`。首次默认扫描所有非系统本地硬盘。
+放在 GitHub 公开仓库 `CautiousG/workbay`（原来在 `bt1sd1/others/Apiary`，那份冻结），拉下来双击 `ui.bat`。不安装 Workbay 本身（避免 pip 构建依赖网络、避免在共享目录里留 egg-info），直接 `python -m workbay` 从目录运行；只在缺 west 时 `pip install --user west`。首次默认扫描所有非系统本地硬盘。
 
 ### 第一版范围
 
